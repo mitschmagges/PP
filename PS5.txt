@@ -1,0 +1,51 @@
+//compile
+nvcc add.cu -o add_cuda
+
+//Profe it
+nvprof ./add_cuda
+
+
+// Allocate Unified Memory -- accessible from CPU or GPU
+float *x, *y;
+cudaMallocManaged(&x, N*sizeof(float));
+cudaMallocManaged(&y, N*sizeof(float));
+
+...
+
+//run Kernel-Function
+add<<<1, 1>>>(N, x, y);
+
+cudaDeviceSynchronize();
+
+...
+
+// Free memory
+cudaFree(x);
+cudaFree(y);
+
+// CUDA Kernel function to add the elements of two arrays on the GPU
+__global__
+void add(int n, float *x, float *y)
+{
+  for (int i = 0; i < n; i++)
+      y[i] = x[i] + y[i];
+}
+	
+
+
+int blockSize = 256; //multiple of 32
+int numBlocks = (N + blockSize - 1) / blockSize;
+add<<<numBlocks, blockSize>>>(N, x, y);
+
+//1-Dimensional:
+gridDim.x //Number of Blocks in the Grid
+blockIdx.x //Index of current Thread-Block
+blockDim.x //Number of Threads in Block
+threadIdx.x //Thread-Id in Block
+
+grid-stride loop:
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+ 	int stride = blockDim.x * gridDim.x;
+	for (int i = index; i < n; i += stride) {
+		...
+	}
