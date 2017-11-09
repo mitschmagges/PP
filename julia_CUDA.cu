@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "julia_CUDA.cuh"
+//#include "julia_kernel.cuh"
 
 double x_start=-2.01;
 double x_end=1;
@@ -11,8 +12,11 @@ double ylower;
 double ycenter=1e-6;
 double step;
 
-int pixel[XSIZE*YSIZE];
+int pixel[XSIZE * YSIZE];
 
+extern void calculate(complex_t julia_C, int xSize, int ySize, double x_start, double ylower, double step, int *buffer);
+
+/*
 complex_t square_complex(complex_t c){
   complex_t r;
   r.real = (c.real * c.real) - (c.imag * c.imag);
@@ -33,42 +37,7 @@ complex_t add_real(complex_t a, int b){
   r.imag = a.imag;
   return r;
 }
-
-__global__
-void calculate(complex_t julia_C) {
-	for(int i=0; i<XSIZE; i++) {
-		for(int j=0; j<YSIZE; j++) {
-			/* Calculate the number of iterations until divergence for each pixel.
-			If divergence never happens, return MAXITER */
-			complex_t c;
-			complex_t z;
-			complex_t temp;
-			int iter=0;
-
-      			// find our starting complex number c
-			c.real = (x_start + step*i);
-			c.imag = (ylower + step*j);
-
-      			// our starting z is c
-			z = c;
-
-      			// iterate until we escape
-			while(z.real*z.real + z.imag*z.imag < 4) {
-        		// Each pixel in a julia set is calculated using z_n = (z_n-1)² + C
-       			complex_t z_old = z;
-			z = add_complex(square_complex(z_old), c);
-			// C is provided as user input, so we need to square z and add C until we
-			// escape, or until we've reached MAXITER
-
-			// z = z squared + C
-
-				if(++iter==MAXITER) break;
-			}
-			pixel[PIXEL(i,j)]=iter;
-		}
-	}
-}
-
+*/
 
 int main(int argc,char **argv) {
 	if(argc==1) {
@@ -90,20 +59,29 @@ int main(int argc,char **argv) {
 	// Get the command line args
 	julia_C.real = strtod(argv[1], NULL);
 	julia_C.imag = strtod(argv[2], NULL);
+	
+	//alloc space on device
+	int *buffer;
+	cudaMallocManaged(&buffer, (XSIZE * YSIZE)*sizeof(int));
 
-
-	calculate<<<1, 1>>>(N, x, y);
-	//calculate(julia_C);
-
+	calculate<<<1, 256>>>(julia_C, XSIZE, YSIZE, x_start, ylower, step, buffer);
+	
+	cudaDeviceSynchronize();
+	
+	//get buffer back
+	
 	/* create nice image from iteration counts. take care to create it upside down (bmp format) */
-	unsigned char *buffer = calloc(XSIZE*YSIZE*3,1);
+	uchar *imgBuffer = malloc(XSIZE*YSIZE*3);
 	for(int i=0; i<XSIZE; i++) {
 		for(int j=0; j<YSIZE; j++) {
 			int p=((YSIZE-j-1)*XSIZE+i)*3;
-			fancycolour(buffer+p,pixel[PIXEL(i,j)]);
+			fancycolour(imgBuffer+p,pixel[PIXEL(i,j)]);
 		}
 	}
 	/* write image to disk */
-	savebmp("julia.bmp",buffer,XSIZE,YSIZE);
+	savebmp("julia.bmp", imgBuffer, XSIZE, YSIZE);
+
+	free(imgBuffer);
+	cudaFree(buffer);
 	return 0;
 }
