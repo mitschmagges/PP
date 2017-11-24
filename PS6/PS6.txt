@@ -1,0 +1,64 @@
+CUDA Programming (10% of final grade)
+
+The topic for this task is to implement a 2-dimensional N-body simulation in CUDA.
+
+An N-body simulation is a numerical approximation of the evolution of a system of bodies in which each body continuously interacts with every other body. An example of this is a system of planets interacting with each other throughgravitational forces.
+
+For further details, we refer to the CH 8 of Elster & Khan's CUDA book draft. As with Problem Set 4, the simulationshould be 2-dimensional.
+
+
+2.1 Implementation (9 %)
+
+The provided archive contains a file called cuda.cu with skeleton code for a CUDA implementation, as well as a serial CPU implementation nbody.c.
+
+The skeleton code contains places where you should fill in missing code. Much of this missing code is found in the book-chapter to help you finish this assignment faster. Your task is to finish this program.
+
+There are 7 subtasks to perform:
+
+     1. Allocate device memory, and transfer data to the device.
+
+     2. Set up correct kernel calls.
+
+     3. Transfer the results back to the host.
+
+     4. Complete the update velocities() function. It should compute the new velocities for all the planets after 1 time step. It should call calculate velocity change block.
+
+     5. Complete the calculate velocity change block function. It shouldcompute the change in velocity for a planet, due to the interations of agroup of other planets. It should call calculate velocity change planet().
+
+     6. Complete calculate velocity change planet(). It should compte thechange in velocity due to one other planet. It should use Newtons law ofgravition.
+
+     7. Complete update positions(). It should update the positions of theplanets, based on the velocities.
+
+Even if you choose to do this task on your own machine, please make sure the code also works on the computer lab machines in Tulipan/ IT buliding South 015. After 6pm you may rlogin to these machines at  :  its-015-XX.idi.ntnu.no (XX being anyof the lab machines in ITS015).
+
+Your CUDA version might be different.
+
+2.2 Report (1 %)   
+
+    a. Run the program with n bodies for different values of n (256, 1024, 4096)  (use the provided les planets256.txt, planets1024.txt, planets4096.txt), with 21 000 timesteps. Report the runtime of the CUDA version, make sure to time calculations and memory copying separately.
+
+Calculate the speedupcompared to the provided CPU version.
+
+    b. Experiment with different block sizes. Run and time your program withat least 3 different block sizes of your choosing. Explain the dfferences in running time you observe (if any). (1%)
+
+
+GRADING: 1% per task, 2% for working code.  Only subit one .cu file that can be run on a machine in 015 / Makerspace.
+
+
+
+// NOTES ############################################################################################################
+
+- Compiling Serial Code:
+	g++ -o nbody nbody.c
+- Running Serial Code
+	./nbody <num_timesteps> <num_threads> <output>
+		Output:
+			0 - One file at end of simulation. <-- use this
+			1 - One file for each timestep, with planet positions (for movie).
+	./nbody 21000 ? 0
+
+- Compiling CUDA Code
+	nvcc -o nbody_cuda -I ~/NVIDIA_GPU_Computing_SDK/shared/inc/nbody_cuda.cu
+- Running NBody CUDA Code
+	./nbody_cuda <num_timesteps>
+	./nbody_cuda 21000
