@@ -3,14 +3,15 @@
 #include <math.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <time.h>
 
 #define dT 0.2f
 #define G 0.6f
 //#define BLOCK_SIZE 32
-#define BLOCK_SIZE 64
+//#define BLOCK_SIZE 64
 //#define BLOCK_SIZE 128
 //#define BLOCK_SIZE 256
-//#define BLOCK_SIZE 512 
+#define BLOCK_SIZE 512 
 
 // Global variables
 int num_planets;
@@ -38,7 +39,9 @@ void parse_args(int argc, char** argv){
 // Reads planets from planets.txt
 void read_planets(){
 
-    FILE* file = fopen("planets.txt", "r");
+    FILE* file = fopen("planets256.txt", "r");
+    //FILE* file = fopen("planets1024.txt", "r");
+    //FILE* file = fopen("planets4096.txt", "r");
     if(file == NULL){
         printf("'planets.txt' not found. Exiting\n");
         exit(-1);
@@ -142,6 +145,9 @@ __global__ void update_positions(float4* planets, float2* velocities, int num_pl
 
 int main(int argc, char** argv){
 
+    //set timestamp
+    clock_t begin = clock();
+
     parse_args(argc, argv);
     read_planets();
 
@@ -155,6 +161,11 @@ int main(int argc, char** argv){
     // -> Step 4: allocation of an array for velocities on the device using cudaMalloc
     cudaMemcpy(velocities_d, velocities, sizeof(float2)*num_planets, cudaMemcpyHostToDevice);
     
+    //calculate first time (copy to device)
+    clock_t first = clock();
+    double time_spent_to_copy_to_device = (double)(first - begin) / CLOCKS_PER_SEC;
+    //print time
+    printf("Copy-to-Device-Time: %f\n", time_spent_to_copy_to_device);
 
     // -> Step 1: Calculating the number of blocks used based on BLOCK_SIZE
     int num_blocks = num_planets/BLOCK_SIZE + ((num_planets%BLOCK_SIZE == 0) ? 0 : 1);
@@ -168,6 +179,12 @@ int main(int argc, char** argv){
         update_positions<<<num_blocks, BLOCK_SIZE>>>(planets_d, velocities_d, num_planets);
     }
 
+    //calculate first time (Caclulation)
+    clock_t second = clock();
+    double time_spent_to_calculate = (double)(second - first) / CLOCKS_PER_SEC;
+    //print time
+    printf("Calculation-Time: %f\n", time_spent_to_calculate);
+
     // TODO 3. Transfer data back to host
     // -> Step 1: Transfer the position and velocity arrays back to host
     cudaMemcpy(velocities, velocities_d, sizeof(float2)*num_planets, cudaMemcpyDeviceToHost);
@@ -180,4 +197,107 @@ int main(int argc, char** argv){
     free(velocities);
     free(planets);
     cudaFree(planets_d);
+
+    //calculate end time (copy to host)
+    clock_t end = clock();
+    double time_spent_to_copy_to_host = (double)(end - second) / CLOCKS_PER_SEC;
+    //print time
+    printf("Copy-to-Host-Time: %f\n", time_spent_to_copy_to_host);
+    
+    double time_all = (double)(end - begin) / CLOCKS_PER_SEC;
+    printf("All-Time: %f\n", time_all);
 }
+
+/*
+REPORT #####################################################################################################
+	-> New PC on Tulpan (i7 7700k / GTX 1080 ti)
+a) 
+Serial Version: (1 Thread, 21000 Timesteps)
+	- 256	Planets: 24.623289s
+	- 1024	Planets: 395.421915s (~6min 35s)
+	- 4069	Planets: take to much time
+
+Cuda Version: (BLOCK_SIZE 64)
+	- 256	Planets:
+		Copy-to-Device-Time:	0.160985s
+		Calculation-Time:	1.113486s
+		Copy-to-Host-Time:	0.026647s
+		-> All-Time:		1.301118s
+	- 1024	Planets:
+		Copy-to-Device-Time: 	0.155725s
+		Calculation-Time:	4.020773s
+		Copy-to-Host-Time:	0.101277s
+		-> All-Time:		4.277775s
+	- 4069	Planets:
+		Copy-to-Device-Time:	0.151724s
+		Calculation-Time:	16.207968s
+		Copy-to-Host-Time:	0.409272s
+		-> All-Time:		16.768964s
+
+==> SPEEDUP:
+	- 256	18.924716x
+	- 1024	92.436352x
+
+b)
+Cuda Version: (BLOCK_SIZE 32)
+	- 256	Planets:
+		Copy-to-Device-Time:	0.140635
+		Calculation-Time:	1.073448
+		Copy-to-Host-Time:	0.029205
+		-> All-Time:		1.243288 <-- FASTEST (256 Planets)
+	- 1024	Planets:
+		Copy-to-Device-Time:	0.148540
+		Calculation-Time: 	4.160538
+		Copy-to-Host-Time: 	0.105188
+		-> All-Time: 		4.414266
+	- 4069	Planets:
+		Copy-to-Device-Time: 	0.167685
+		Calculation-Time: 	16.654356
+		Copy-to-Host-Time: 	0.421628
+		-> All-Time: 		17.243669 //slowest (4096)
+
+Cuda Version: (BLOCK_SIZE 256)
+	- 256	Planets:
+		Copy-to-Device-Time: 	0.153521
+		Calculation-Time: 	1.120654
+		Copy-to-Host-Time: 	0.026555
+		-> All-Time: 		1.300730
+	- 1024	Planets:
+		Copy-to-Device-Time: 	0.144414
+		Calculation-Time: 	4.000408
+		Copy-to-Host-Time: 	0.100507
+		-> All-Time: 		4.245329 <-- FASTEST (1024 Planets)
+	- 4069	Planets:
+		Copy-to-Device-Time: 	0.169759
+		Calculation-Time: 	15.745258
+		Copy-to-Host-Time: 	0.397490
+		-> All-Time: 		16.312507 <-- FASTEST (4096 Planets)
+
+Cuda Version: (BLOCK_SIZE 512)
+	- 256	Planets:
+		Copy-to-Device-Time: 	0.162534
+		Calculation-Time: 	5.162525
+		Copy-to-Host-Time: 	0.143631
+		-> All-Time: 		5.468690 //slowest (256)
+	- 1024	Planets:
+		Copy-to-Device-Time: 	0.141358
+		Calculation-Time: 	4.169906
+		Copy-to-Host-Time: 	0.104564
+		-> All-Time: 		4.415828 //slowest (1024)
+	- 4069	Planets:
+		Copy-to-Device-Time: 	0.143752
+		Calculation-Time: 	16.378144
+		Copy-to-Host-Time: 	0.414755
+		-> All-Time: 		16.936651
+
+There are some small differences using different BLOCK_SIZEs.
+The over all fastest one is the Number 256. (except of run with 256 Planets)
+Realy slow is the run with BLCK_SIZE 512 and 256 Planets.
+In general the differences are realy small. 
+The differences seem to come from a combination of Problem-Size and BLOCK_SIZE.
+It also depends on the used hardware. (Which was the same for all the runs)
+-> There is also Occupancy in CUDA, which defined as a ratio of active warps per SM to max. warps that can be active at once.
+This can help to pick a good BLOCK_SIZE.
+
+*/
+

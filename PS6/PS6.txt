@@ -55,7 +55,7 @@ GRADING: 1% per task, 2% for working code.  Only subit one .cu file that can be 
 		Output:
 			0 - One file at end of simulation. <-- use this
 			1 - One file for each timestep, with planet positions (for movie).
-	./nbody 21000 ? 0
+	./nbody 21000 1 0
 
 - Compiling CUDA Code
 	nvcc -o nbody_cuda -I ~/NVIDIA_GPU_Computing_SDK/shared/inc/nbody_cuda.cu

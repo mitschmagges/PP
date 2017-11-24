@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <time.h>
 
 #define G  0.6 //Gravitational constant  
 #define dT 0.2 //Length of timestep 
@@ -48,7 +49,9 @@ void parse_args(int argc, char** argv){
 void read_planets(){
 
     char* a;
-    FILE* file = fopen("planets.txt", "r");
+    //FILE* file = fopen("planets256.txt", "r");
+    //FILE* file = fopen("planets1024.txt", "r");
+    FILE* file = fopen("planets4096.txt", "r");
     if(file == NULL){
         printf("'planets.txt' not found. Exiting\n");
         exit(-1);
@@ -123,6 +126,9 @@ vec2 compute_velocity_change(planet p, planet q){
 
 int main(int argc, char** argv){
 
+    //set timestamp
+    clock_t begin = clock();
+
     parse_args(argc, argv);
 
     read_planets();
@@ -166,4 +172,10 @@ int main(int argc, char** argv){
     if(output == 0){
         write_planets(num_timesteps,0);
     }
+
+    //calculate time
+    clock_t end = clock();
+    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+    //print time
+    printf("Calculation-Time: %f\n", time_spent);
 }
